@@ -72,7 +72,11 @@ export const createAuthProvider = <T>({
         return [isLogged] as [typeof isLogged];
     };
 
-    return [useAuth, authFetch, login, logout] as [typeof useAuth, typeof authFetch, typeof login, typeof logout];
+    const getClaim = (claim?: string) => {
+        return tp.getClaim(claim);
+    }
+
+    return [useAuth, authFetch, login, logout, getClaim] as [typeof useAuth, typeof authFetch, typeof login, typeof logout, typeof getClaim];
 };
 
 interface ITokenProviderConfig<T> {
@@ -189,6 +193,46 @@ const createTokenProvider = <T>({
         return getTokenInternal();
     };
 
+    const jwtClaim = (token?: any, claim?: string) => {
+        if (!(typeof token === 'string') || !claim) {
+            return null;
+        }
+
+        const split = token.split('.');
+
+        if (split.length < 2) {
+            return null;
+        }
+
+        try {
+            const jwt = JSON.parse(atob(token.split('.')[1]));
+            if (jwt) {
+                return jwt[claim];
+            } else {
+                return null;
+            }
+        } catch (e) {
+            return null;
+        }
+    }
+
+    const getClaim = (claim?: string) => {
+        const token = getTokenInternal();
+        if (!token) {
+            return null;
+        }
+
+        if (accessTokenKey) {
+            // @ts-ignore
+            const data = jwtClaim(token[accessTokenKey], claim);
+            if (data) {
+                return data;
+            }
+        }
+
+        return jwtClaim(token, claim);
+    }
+
     const isLoggedIn = () => {
         return !!getTokenInternal();
     };
@@ -208,6 +252,7 @@ const createTokenProvider = <T>({
     };
 
     return {
+        getClaim,
         getToken,
         isLoggedIn,
         setToken,
